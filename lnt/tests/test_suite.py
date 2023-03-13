@@ -183,6 +183,16 @@ class TestSuiteTest(BuiltinTest):
         self.trained = False
         self.remote_run = False
 
+    def import_lit(self, opts):
+        self.start_time = timestamp()
+        data = None
+        with open(opts.lit_output) as f:
+            data = json.loads(f.read())
+        report = self._parse_lit_output("", data, dict())
+        report_path = 'report.json'
+        with open(report_path, 'w') as fd:
+            fd.write(report.render())
+
     def run_test(self, opts):
 
         if opts.cc is not None:
@@ -831,8 +841,8 @@ class TestSuiteTest(BuiltinTest):
             'tag': 'nts',
             'no_errors': no_errors,
         }
-        run_info.update(self._get_cc_info(cmake_vars))
-        run_info['run_order'] = run_info['inferred_run_order']
+        # run_info.update(self._get_cc_info(cmake_vars))
+        #run_info['run_order'] = run_info['inferred_run_order']
         if self.opts.run_order:
             run_info['run_order'] = self.opts.run_order
 
@@ -1028,7 +1038,7 @@ class TestSuiteTest(BuiltinTest):
 @click.argument("label", default=platform.uname()[1], required=False,
                 type=click.UNPROCESSED)
 # Sandbox options
-@click.option("-S", "--sandbox", "sandbox_path", required=True,
+@click.option("-S", "--sandbox", "sandbox_path", required=False,
               help="Parent directory to build and run tests in",
               type=click.UNPROCESSED, metavar="PATH")
 @click.option("--no-timestamp", "timestamp_build",
@@ -1158,6 +1168,9 @@ class TestSuiteTest(BuiltinTest):
 @click.option("--use-lit", "lit", metavar="PATH", type=click.UNPROCESSED,
               default="llvm-lit",
               help="Path to the LIT test runner [llvm-lit]")
+@click.option("--import-lit", "lit_output", metavar="PATH", type=click.UNPROCESSED,
+              default="result.json",
+              help="Path to the output of LIT test runner [result.json]")
 @submit_options
 def cli_action(*args, **kwargs):
     test_suite = TestSuiteTest()
@@ -1165,6 +1178,9 @@ def cli_action(*args, **kwargs):
     for key, value in kwargs.items():
         setattr(test_suite.opts, key, value)
 
-    results = test_suite.run_test(test_suite.opts)
+    if test_suite.opts.lit_output:
+        results = test_suite.import_lit(test_suite.opts)
+    else:
+        results = test_suite.run_test(test_suite.opts)
     if results:
         test_suite.show_results_url(results)
